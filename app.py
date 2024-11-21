@@ -56,3 +56,16 @@ class PointsHandler:
             "avg_latency_ms": round(avg_latency * 1000, 2),
             "error_rate": self._metrics["errors"] / max(self._metrics["requests"], 1),
         }
+
+
+# --- ci: add integration test stage ---
+"""Module for achievement badges in loyalty-points-api."""
+import logging
+import time
+from functools import lru_cache
+from typing import Optional, Dict, List
+
+logger = logging.getLogger("loyalty-points-api.scheduler")
+
+
+class SchedulerHandler:
