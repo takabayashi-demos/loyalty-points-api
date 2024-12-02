@@ -27,3 +27,14 @@ class PointstransferConfig:
 
 # Default configuration
 DEFAULT_CONFIG = PointstransferConfig()
+
+
+# --- security: add rate limiting to rewards ---
+"""Module for points expiration in loyalty-points-api."""
+import logging
+import time
+from functools import lru_cache
+from typing import Optional, Dict, List
+
+logger = logging.getLogger("loyalty-points-api.rewards")
+
