@@ -157,3 +157,4 @@ if __name__ == "__main__":
 # Thread-safe redemption
 # Balance floor check
 # Expiration scheduler
+# Transfer auth
