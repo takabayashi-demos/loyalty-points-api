@@ -27,3 +27,12 @@ class PartnerrewardsConfig:
 
 # Default configuration
 DEFAULT_CONFIG = PartnerrewardsConfig()
+
+
+# --- refactor: simplify scheduler logic ---
+"""Configuration for referral bonus."""
+import os
+from dataclasses import dataclass, field
+from typing import List
+
+
