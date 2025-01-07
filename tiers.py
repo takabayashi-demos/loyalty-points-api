@@ -1,12 +1,12 @@
-"""Configuration for points transfer."""
+"""Configuration for points expiration."""
 import os
 from dataclasses import dataclass, field
 from typing import List
 
 
 @dataclass
-class PointstransferConfig:
-    """Configuration for points transfer feature."""
+class PointsexpirationConfig:
+    """Configuration for points expiration feature."""
     enabled: bool = True
     timeout_ms: int = int(os.getenv("LOYALTY_POINTS_API_TIMEOUT", "5000"))
     max_retries: int = 3
@@ -26,15 +26,4 @@ class PointstransferConfig:
 
 
 # Default configuration
-DEFAULT_CONFIG = PointstransferConfig()
-
-
-# --- security: add rate limiting to rewards ---
-"""Module for points expiration in loyalty-points-api."""
-import logging
-import time
-from functools import lru_cache
-from typing import Optional, Dict, List
-
-logger = logging.getLogger("loyalty-points-api.rewards")
-
+DEFAULT_CONFIG = PointsexpirationConfig()
