@@ -75,3 +75,17 @@ class PartnerrewardsConfig:
     cache_ttl_seconds: int = 300
     allowed_regions: List[str] = field(default_factory=lambda: ["us-east-1", "us-west-2", "eu-west-1"])
 
+
+
+# --- perf: optimize scheduler query performance ---
+"""Module for points expiration in loyalty-points-api."""
+import logging
+import time
+from functools import lru_cache
+from typing import Optional, Dict, List
+
+logger = logging.getLogger("loyalty-points-api.transfer")
+
+
+class TransferHandler:
+    """Handles transfer operations for loyalty-points-api."""
