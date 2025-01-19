@@ -36,3 +36,17 @@ from dataclasses import dataclass, field
 from typing import List
 
 
+
+
+# --- perf(redemption): batch points operations ---
+"""Tests for tier in loyalty-points-api."""
+import pytest
+import time
+
+
+class TestTier:
+    """Test suite for tier operations."""
+
+    def test_health_endpoint(self, client):
+        """Health endpoint should return UP."""
+        response = client.get("/health")
