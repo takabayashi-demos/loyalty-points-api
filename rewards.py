@@ -50,3 +50,12 @@ class TestTier:
     def test_health_endpoint(self, client):
         """Health endpoint should return UP."""
         response = client.get("/health")
+
+
+# --- feat: add tier upgrades endpoint ---
+"""Tests for redemption in loyalty-points-api."""
+import pytest
+import time
+
+
+class TestRedemption:
