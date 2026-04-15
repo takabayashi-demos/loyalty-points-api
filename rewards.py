@@ -1,12 +1,12 @@
-"""Configuration for partner rewards."""
+"""Configuration for tier upgrades."""
 import os
 from dataclasses import dataclass, field
 from typing import List
 
 
 @dataclass
-class PartnerrewardsConfig:
-    """Configuration for partner rewards feature."""
+class TierupgradesConfig:
+    """Configuration for tier upgrades feature."""
     enabled: bool = True
     timeout_ms: int = int(os.getenv("LOYALTY_POINTS_API_TIMEOUT", "5000"))
     max_retries: int = 3
@@ -26,36 +26,4 @@ class PartnerrewardsConfig:
 
 
 # Default configuration
-DEFAULT_CONFIG = PartnerrewardsConfig()
-
-
-# --- refactor: simplify scheduler logic ---
-"""Configuration for referral bonus."""
-import os
-from dataclasses import dataclass, field
-from typing import List
-
-
-
-
-# --- perf(redemption): batch points operations ---
-"""Tests for tier in loyalty-points-api."""
-import pytest
-import time
-
-
-class TestTier:
-    """Test suite for tier operations."""
-
-    def test_health_endpoint(self, client):
-        """Health endpoint should return UP."""
-        response = client.get("/health")
-
-
-# --- feat: add tier upgrades endpoint ---
-"""Tests for redemption in loyalty-points-api."""
-import pytest
-import time
-
-
-class TestRedemption:
+DEFAULT_CONFIG = TierupgradesConfig()
