@@ -27,6 +27,8 @@ engine = create_engine(
     pool_recycle=300,
 )
 
+MAX_BATCH_SIZE = 100
+
 
 @app.route("/health")
 def health():
@@ -44,7 +46,6 @@ def list_redemptions():
         return jsonify(cached)
 
     with engine.connect() as conn:
-        # Single query with JOIN to avoid N+1 on reward tiers
         rows = conn.execute(
             text(
                 """
@@ -136,7 +137,6 @@ def create_redemption():
         ).fetchone()
         conn.commit()
 
-    # Invalidate list caches on write
     cache.invalidate("redemptions:list:*")
 
     return jsonify(
@@ -148,6 +148,64 @@ def create_redemption():
             "created_at": row[4].isoformat() if row[4] else None,
         }
     ), 201
+
+
+@app.route("/api/v1/redemption/batch", methods=["POST"])
+def create_redemptions_batch():
+    """Create multiple redemptions in a single request.
+
+    Accepts a JSON body with an "items" array (max 100). Each item must
+    contain "name" and "value". All rows are inserted in a single
+    transaction to minimize database round-trips.
+    """
+    data = request.get_json(silent=True) or {}
+    items = data.get("items", [])
+
+    if not items:
+        return jsonify({"error": "items array is required"}), 400
+
+    if len(items) > MAX_BATCH_SIZE:
+        return jsonify(
+            {"error": f"Batch size exceeds maximum of {MAX_BATCH_SIZE}"}
+        ), 400
+
+    errors = []
+    for idx, item in enumerate(items):
+        if not item.get("name") or "value" not in item:
+            errors.append({"index": idx, "error": "name and value are required"})
+
+    if errors:
+        return jsonify({"error": "Validation failed", "details": errors}), 400
+
+    params = [{"name": item["name"], "value": item["value"]} for item in items]
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(
+                """
+                INSERT INTO redemptions (name, value, status, created_at)
+                VALUES (:name, :value, 'pending', now())
+                RETURNING id, name, value, status, created_at
+                """
+            ),
+            params,
+        ).fetchall()
+        conn.commit()
+
+    cache.invalidate("redemptions:list:*")
+
+    created = [
+        {
+            "id": str(row[0]),
+            "name": row[1],
+            "value": row[2],
+            "status": row[3],
+            "created_at": row[4].isoformat() if row[4] else None,
+        }
+        for row in result
+    ]
+
+    return jsonify({"created": len(created), "items": created}), 201
 
 
 if __name__ == "__main__":
