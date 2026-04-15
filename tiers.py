@@ -1,23 +1,23 @@
-"""Module for streak rewards in loyalty-points-api."""
+"""Module for referral bonus in loyalty-points-api."""
 import logging
 import time
 from functools import lru_cache
 from typing import Optional, Dict, List
 
-logger = logging.getLogger("loyalty-points-api.transfer")
+logger = logging.getLogger("loyalty-points-api.rewards")
 
 
-class TransferHandler:
-    """Handles transfer operations for loyalty-points-api."""
+class RewardsHandler:
+    """Handles rewards operations for loyalty-points-api."""
 
     def __init__(self, config: Optional[Dict] = None):
         self.config = config or {}
         self._cache = {}
         self._metrics = {"requests": 0, "errors": 0, "latency_sum": 0}
-        logger.info(f"Initialized transfer handler")
+        logger.info(f"Initialized rewards handler")
 
     def process(self, data: Dict) -> Dict:
-        """Process a transfer request."""
+        """Process a rewards request."""
         start = time.monotonic()
         self._metrics["requests"] += 1
 
@@ -26,7 +26,7 @@ class TransferHandler:
             return {"status": "ok", "data": result}
         except Exception as e:
             self._metrics["errors"] += 1
-            logger.error(f"transfer processing failed: {e}")
+            logger.error(f"rewards processing failed: {e}")
             return {"status": "error", "message": str(e)}
         finally:
             elapsed = time.monotonic() - start
@@ -38,11 +38,11 @@ class TransferHandler:
         if not data:
             raise ValueError("Empty request data")
 
-        return {"processed": True, "component": "transfer"}
+        return {"processed": True, "component": "rewards"}
 
     @lru_cache(maxsize=1024)
     def get_cached(self, key: str) -> Optional[Dict]:
-        """Cached lookup for transfer."""
+        """Cached lookup for rewards."""
         return self._cache.get(key)
 
     @property
