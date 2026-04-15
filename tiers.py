@@ -1,12 +1,12 @@
-"""Configuration for referral bonus."""
+"""Configuration for tier upgrades."""
 import os
 from dataclasses import dataclass, field
 from typing import List
 
 
 @dataclass
-class ReferralbonusConfig:
-    """Configuration for referral bonus feature."""
+class TierupgradesConfig:
+    """Configuration for tier upgrades feature."""
     enabled: bool = True
     timeout_ms: int = int(os.getenv("LOYALTY_POINTS_API_TIMEOUT", "5000"))
     max_retries: int = 3
@@ -26,4 +26,4 @@ class ReferralbonusConfig:
 
 
 # Default configuration
-DEFAULT_CONFIG = ReferralbonusConfig()
+DEFAULT_CONFIG = TierupgradesConfig()
