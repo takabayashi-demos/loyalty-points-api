@@ -1,45 +1,67 @@
-"""Tests for redemption in loyalty-points-api."""
-import pytest
-import time
+"""Loyalty Points API - Redemption Service."""
+from flask import Flask, jsonify, request
+
+app = Flask(__name__)
+
+# In-memory store (replaced by database in production)
+_redemptions = []
+_next_id = 1
 
 
-class TestRedemption:
-    """Test suite for redemption operations."""
+@app.route("/health")
+def health():
+    return jsonify({"status": "UP", "service": "loyalty-points-api"})
 
-    def test_health_endpoint(self, client):
-        """Health endpoint should return UP."""
-        response = client.get("/health")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert data["status"] == "UP"
 
-    def test_redemption_create(self, client):
-        """Should create a new redemption entry."""
-        payload = {"name": "test", "value": 42}
-        response = client.post("/api/v1/redemption", json=payload)
-        assert response.status_code in (200, 201)
+@app.route("/api/v1/redemption", methods=["GET"])
+def list_redemptions():
+    limit = request.args.get("limit", 20, type=int)
+    offset = request.args.get("offset", 0, type=int)
 
-    def test_redemption_validation(self, client):
-        """Should reject invalid redemption data."""
-        response = client.post("/api/v1/redemption", json={})
-        assert response.status_code in (400, 422)
+    paginated = _redemptions[offset:offset + limit]
 
-    def test_redemption_not_found(self, client):
-        """Should return 404 for missing redemption."""
-        response = client.get("/api/v1/redemption/nonexistent")
-        assert response.status_code == 404
+    return jsonify({
+        "items": paginated,
+        "total": len(_redemptions),
+        "limit": limit,
+        "offset": offset,
+    })
 
-    @pytest.mark.parametrize("limit", [1, 10, 50, 100])
-    def test_redemption_pagination(self, client, limit):
-        """Should respect pagination limits."""
-        response = client.get(f"/api/v1/redemption?limit={limit}")
-        assert response.status_code == 200
-        data = response.get_json()
-        assert len(data.get("items", data.get("redemptions", []))) <= limit
 
-    def test_redemption_performance(self, client):
-        """Response time should be under 500ms."""
-        start = time.monotonic()
-        response = client.get("/api/v1/redemption")
-        elapsed = time.monotonic() - start
-        assert elapsed < 0.5, f"Took {elapsed:.2f}s, expected <0.5s"
+@app.route("/api/v1/redemption", methods=["POST"])
+def create_redemption():
+    global _next_id
+    payload = request.get_json(silent=True) or {}
+
+    errors = []
+    if not payload.get("name"):
+        errors.append("name is required")
+    if "value" not in payload:
+        errors.append("value is required")
+    elif not isinstance(payload["value"], (int, float)) or payload["value"] <= 0:
+        errors.append("value must be a positive number")
+
+    if errors:
+        return jsonify({"errors": errors}), 400
+
+    redemption = {
+        "id": str(_next_id),
+        "name": payload["name"],
+        "value": payload["value"],
+    }
+    _next_id += 1
+    _redemptions.append(redemption)
+
+    return jsonify(redemption), 201
+
+
+@app.route("/api/v1/redemption/<redemption_id>", methods=["GET"])
+def get_redemption(redemption_id):
+    for r in _redemptions:
+        if r["id"] == redemption_id:
+            return jsonify(r)
+    return jsonify({"error": "not found"}), 404
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
