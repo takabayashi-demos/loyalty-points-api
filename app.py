@@ -12,6 +12,46 @@ NAME_MAX_LENGTH = 200
 VALUE_MAX = 1_000_000
 
 
+def validate_redemption_payload(payload):
+    """Validate redemption payload and return errors if any.
+    
+    Args:
+        payload: Dictionary containing redemption data
+        
+    Returns:
+        tuple: (validated_data, errors) where validated_data is dict or None,
+               and errors is list of error messages
+    """
+    errors = []
+    validated = {}
+
+    name = payload.get("name")
+    if not name or not isinstance(name, str):
+        errors.append("name is required and must be a string")
+    else:
+        name = name.strip()
+        if len(name) == 0:
+            errors.append("name must not be blank")
+        elif len(name) > NAME_MAX_LENGTH:
+            errors.append(f"name must be {NAME_MAX_LENGTH} characters or fewer")
+        else:
+            validated["name"] = name
+
+    value = payload.get("value")
+    if value is None:
+        errors.append("value is required")
+    elif not isinstance(value, (int, float)) or isinstance(value, bool):
+        errors.append("value must be a number")
+    elif value <= 0:
+        errors.append("value must be a positive number")
+    elif value > VALUE_MAX:
+        errors.append(f"value must not exceed {VALUE_MAX}")
+    else:
+        validated["value"] = value
+
+    return (validated if not errors else None, errors)
+
+
 @app.route("/health")
 def health():
     return jsonify({"status": "UP", "service": "loyalty-points-api"})
@@ -44,35 +84,15 @@ def create_redemption():
 
     payload = request.get_json(silent=True) or {}
 
-    errors = []
-
-    name = payload.get("name")
-    if not name or not isinstance(name, str):
-        errors.append("name is required and must be a string")
-    else:
-        name = name.strip()
-        if len(name) == 0:
-            errors.append("name must not be blank")
-        elif len(name) > NAME_MAX_LENGTH:
-            errors.append(f"name must be {NAME_MAX_LENGTH} characters or fewer")
-
-    value = payload.get("value")
-    if value is None:
-        errors.append("value is required")
-    elif not isinstance(value, (int, float)) or isinstance(value, bool):
-        errors.append("value must be a number")
-    elif value <= 0:
-        errors.append("value must be a positive number")
-    elif value > VALUE_MAX:
-        errors.append(f"value must not exceed {VALUE_MAX}")
+    validated_data, errors = validate_redemption_payload(payload)
 
     if errors:
         return jsonify({"errors": errors}), 400
 
     redemption = {
         "id": str(_next_id),
-        "name": name,
-        "value": value,
+        "name": validated_data["name"],
+        "value": validated_data["value"],
     }
     _next_id += 1
     _redemptions.append(redemption)
