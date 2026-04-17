@@ -1,8 +1,18 @@
 """Loyalty Points API - Redemption Service."""
 from flask import Flask, jsonify, request
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["100 per hour", "20 per minute"],
+    storage_uri="memory://",
+    headers_enabled=True,
+)
 
 # In-memory store (replaced by database in production)
 _redemptions = []
@@ -13,11 +23,13 @@ VALUE_MAX = 1_000_000
 
 
 @app.route("/health")
+@limiter.exempt
 def health():
     return jsonify({"status": "UP", "service": "loyalty-points-api"})
 
 
 @app.route("/api/v1/redemption", methods=["GET"])
+@limiter.limit("50 per minute")
 def list_redemptions():
     limit = request.args.get("limit", 20, type=int)
     offset = request.args.get("offset", 0, type=int)
@@ -36,6 +48,7 @@ def list_redemptions():
 
 
 @app.route("/api/v1/redemption", methods=["POST"])
+@limiter.limit("10 per minute")
 def create_redemption():
     global _next_id
 
@@ -81,6 +94,7 @@ def create_redemption():
 
 
 @app.route("/api/v1/redemption/<redemption_id>", methods=["GET"])
+@limiter.limit("50 per minute")
 def get_redemption(redemption_id):
     for r in _redemptions:
         if r["id"] == redemption_id:
