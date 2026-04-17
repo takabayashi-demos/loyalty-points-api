@@ -1,11 +1,17 @@
 """Loyalty Points API - Redemption Service."""
 from flask import Flask, jsonify, request
+from flask_caching import Cache
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
+app.config["CACHE_TYPE"] = "simple"
+app.config["CACHE_DEFAULT_TIMEOUT"] = 300
+
+cache = Cache(app)
 
 # In-memory store (replaced by database in production)
-_redemptions = []
+_redemptions = []  # ordered list for pagination
+_redemptions_index = {}  # dict for O(1) lookups by ID
 _next_id = 1
 
 NAME_MAX_LENGTH = 200
@@ -18,6 +24,7 @@ def health():
 
 
 @app.route("/api/v1/redemption", methods=["GET"])
+@cache.cached(query_string=True)
 def list_redemptions():
     limit = request.args.get("limit", 20, type=int)
     offset = request.args.get("offset", 0, type=int)
@@ -76,15 +83,19 @@ def create_redemption():
     }
     _next_id += 1
     _redemptions.append(redemption)
+    _redemptions_index[redemption["id"]] = redemption
+    
+    cache.clear()
 
     return jsonify(redemption), 201
 
 
 @app.route("/api/v1/redemption/<redemption_id>", methods=["GET"])
+@cache.memoize(timeout=300)
 def get_redemption(redemption_id):
-    for r in _redemptions:
-        if r["id"] == redemption_id:
-            return jsonify(r)
+    redemption = _redemptions_index.get(redemption_id)
+    if redemption:
+        return jsonify(redemption)
     return jsonify({"error": "not found"}), 404
 
 
