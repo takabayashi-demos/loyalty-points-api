@@ -1,8 +1,16 @@
 """Loyalty Points API - Redemption Service."""
+import logging
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # In-memory store (replaced by database in production)
 _redemptions = []
@@ -66,6 +74,11 @@ def list_redemptions():
     offset = max(0, offset)
 
     paginated = _redemptions[offset:offset + limit]
+    
+    logger.info(
+        "Listed redemptions",
+        extra={"limit": limit, "offset": offset, "total": len(_redemptions)}
+    )
 
     return jsonify({
         "items": paginated,
@@ -80,6 +93,7 @@ def create_redemption():
     global _next_id
 
     if not request.is_json:
+        logger.warning("Invalid content type", extra={"content_type": request.content_type})
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     payload = request.get_json(silent=True) or {}
@@ -87,6 +101,7 @@ def create_redemption():
     validated_data, errors = validate_redemption_payload(payload)
 
     if errors:
+        logger.warning("Validation failed", extra={"errors": errors})
         return jsonify({"errors": errors}), 400
 
     redemption = {
@@ -97,6 +112,11 @@ def create_redemption():
     _next_id += 1
     _redemptions.append(redemption)
 
+    logger.info(
+        "Created redemption",
+        extra={"redemption_id": redemption["id"], "name": redemption["name"]}
+    )
+
     return jsonify(redemption), 201
 
 
@@ -104,7 +124,10 @@ def create_redemption():
 def get_redemption(redemption_id):
     for r in _redemptions:
         if r["id"] == redemption_id:
+            logger.info("Retrieved redemption", extra={"redemption_id": redemption_id})
             return jsonify(r)
+    
+    logger.warning("Redemption not found", extra={"redemption_id": redemption_id})
     return jsonify({"error": "not found"}), 404
 
 
