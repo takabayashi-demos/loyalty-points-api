@@ -1,5 +1,13 @@
 """Loyalty Points API - Redemption Service."""
+import logging
 from flask import Flask, jsonify, request
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
@@ -10,6 +18,42 @@ _next_id = 1
 
 NAME_MAX_LENGTH = 200
 VALUE_MAX = 1_000_000
+
+
+def validate_name(name):
+    """Validate redemption name field.
+    
+    Returns:
+        tuple: (validated_name, error_message or None)
+    """
+    if not name or not isinstance(name, str):
+        return None, "name is required and must be a string"
+    
+    name = name.strip()
+    if len(name) == 0:
+        return None, "name must not be blank"
+    elif len(name) > NAME_MAX_LENGTH:
+        return None, f"name must be {NAME_MAX_LENGTH} characters or fewer"
+    
+    return name, None
+
+
+def validate_value(value):
+    """Validate redemption value field.
+    
+    Returns:
+        tuple: (value, error_message or None)
+    """
+    if value is None:
+        return None, "value is required"
+    elif not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None, "value must be a number"
+    elif value <= 0:
+        return None, "value must be a positive number"
+    elif value > VALUE_MAX:
+        return None, f"value must not exceed {VALUE_MAX}"
+    
+    return value, None
 
 
 @app.route("/health")
@@ -27,6 +71,8 @@ def list_redemptions():
 
     paginated = _redemptions[offset:offset + limit]
 
+    logger.info(f"Listed redemptions: offset={offset}, limit={limit}, total={len(_redemptions)}")
+
     return jsonify({
         "items": paginated,
         "total": len(_redemptions),
@@ -40,33 +86,25 @@ def create_redemption():
     global _next_id
 
     if not request.is_json:
+        logger.warning("Invalid content type received")
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     payload = request.get_json(silent=True) or {}
 
     errors = []
 
-    name = payload.get("name")
-    if not name or not isinstance(name, str):
-        errors.append("name is required and must be a string")
-    else:
-        name = name.strip()
-        if len(name) == 0:
-            errors.append("name must not be blank")
-        elif len(name) > NAME_MAX_LENGTH:
-            errors.append(f"name must be {NAME_MAX_LENGTH} characters or fewer")
+    # Validate name
+    name, name_error = validate_name(payload.get("name"))
+    if name_error:
+        errors.append(name_error)
 
-    value = payload.get("value")
-    if value is None:
-        errors.append("value is required")
-    elif not isinstance(value, (int, float)) or isinstance(value, bool):
-        errors.append("value must be a number")
-    elif value <= 0:
-        errors.append("value must be a positive number")
-    elif value > VALUE_MAX:
-        errors.append(f"value must not exceed {VALUE_MAX}")
+    # Validate value
+    value, value_error = validate_value(payload.get("value"))
+    if value_error:
+        errors.append(value_error)
 
     if errors:
+        logger.warning(f"Validation failed: {errors}")
         return jsonify({"errors": errors}), 400
 
     redemption = {
@@ -77,6 +115,8 @@ def create_redemption():
     _next_id += 1
     _redemptions.append(redemption)
 
+    logger.info(f"Created redemption: id={redemption['id']}, name={redemption['name']}, value={redemption['value']}")
+
     return jsonify(redemption), 201
 
 
@@ -84,7 +124,10 @@ def create_redemption():
 def get_redemption(redemption_id):
     for r in _redemptions:
         if r["id"] == redemption_id:
+            logger.info(f"Retrieved redemption: id={redemption_id}")
             return jsonify(r)
+    
+    logger.warning(f"Redemption not found: id={redemption_id}")
     return jsonify({"error": "not found"}), 404
 
 
