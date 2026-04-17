@@ -10,6 +10,7 @@ _next_id = 1
 
 NAME_MAX_LENGTH = 200
 VALUE_MAX = 1_000_000
+CACHE_MAX_AGE = 60  # seconds
 
 
 @app.route("/health")
@@ -29,12 +30,14 @@ def list_redemptions():
     items = sorted(_redemptions.values(), key=lambda x: int(x["id"]))
     paginated = items[offset:offset + limit]
 
-    return jsonify({
+    response = jsonify({
         "items": paginated,
         "total": len(_redemptions),
         "limit": limit,
         "offset": offset,
     })
+    response.headers["Cache-Control"] = f"public, max-age={CACHE_MAX_AGE}"
+    return response
 
 
 @app.route("/api/v1/redemption", methods=["POST"])
@@ -87,7 +90,9 @@ def create_redemption():
 def get_redemption(redemption_id):
     redemption = _redemptions.get(redemption_id)
     if redemption:
-        return jsonify(redemption)
+        response = jsonify(redemption)
+        response.headers["Cache-Control"] = f"public, max-age={CACHE_MAX_AGE}"
+        return response
     return jsonify({"error": "not found"}), 404
 
 
