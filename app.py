@@ -4,12 +4,13 @@ from flask import Flask, jsonify, request
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
 
-# In-memory store (replaced by database in production)
-_redemptions = []
+# Hash-based storage for O(1) lookups (replaced by database in production)
+_redemptions = {}
 _next_id = 1
 
 NAME_MAX_LENGTH = 200
 VALUE_MAX = 1_000_000
+CACHE_MAX_AGE = 60  # seconds
 
 
 @app.route("/health")
@@ -25,14 +26,18 @@ def list_redemptions():
     limit = max(1, min(limit, 100))
     offset = max(0, offset)
 
-    paginated = _redemptions[offset:offset + limit]
+    # Convert dict to sorted list for pagination
+    items = sorted(_redemptions.values(), key=lambda x: int(x["id"]))
+    paginated = items[offset:offset + limit]
 
-    return jsonify({
+    response = jsonify({
         "items": paginated,
         "total": len(_redemptions),
         "limit": limit,
         "offset": offset,
     })
+    response.headers["Cache-Control"] = f"public, max-age={CACHE_MAX_AGE}"
+    return response
 
 
 @app.route("/api/v1/redemption", methods=["POST"])
@@ -69,22 +74,25 @@ def create_redemption():
     if errors:
         return jsonify({"errors": errors}), 400
 
+    redemption_id = str(_next_id)
     redemption = {
-        "id": str(_next_id),
+        "id": redemption_id,
         "name": name,
         "value": value,
     }
     _next_id += 1
-    _redemptions.append(redemption)
+    _redemptions[redemption_id] = redemption
 
     return jsonify(redemption), 201
 
 
 @app.route("/api/v1/redemption/<redemption_id>", methods=["GET"])
 def get_redemption(redemption_id):
-    for r in _redemptions:
-        if r["id"] == redemption_id:
-            return jsonify(r)
+    redemption = _redemptions.get(redemption_id)
+    if redemption:
+        response = jsonify(redemption)
+        response.headers["Cache-Control"] = f"public, max-age={CACHE_MAX_AGE}"
+        return response
     return jsonify({"error": "not found"}), 404
 
 
