@@ -1,5 +1,13 @@
 """Loyalty Points API - Redemption Service."""
+import logging
 from flask import Flask, jsonify, request
+
+# Configure structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
@@ -27,6 +35,8 @@ def list_redemptions():
 
     paginated = _redemptions[offset:offset + limit]
 
+    logger.info(f"Listed redemptions: offset={offset}, limit={limit}, total={len(_redemptions)}")
+
     return jsonify({
         "items": paginated,
         "total": len(_redemptions),
@@ -40,6 +50,7 @@ def create_redemption():
     global _next_id
 
     if not request.is_json:
+        logger.warning("Invalid content type received")
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     payload = request.get_json(silent=True) or {}
@@ -67,6 +78,7 @@ def create_redemption():
         errors.append(f"value must not exceed {VALUE_MAX}")
 
     if errors:
+        logger.warning(f"Validation failed: {errors}")
         return jsonify({"errors": errors}), 400
 
     redemption = {
@@ -77,6 +89,8 @@ def create_redemption():
     _next_id += 1
     _redemptions.append(redemption)
 
+    logger.info(f"Created redemption: id={redemption['id']}, name={redemption['name']}, value={redemption['value']}")
+
     return jsonify(redemption), 201
 
 
@@ -84,7 +98,10 @@ def create_redemption():
 def get_redemption(redemption_id):
     for r in _redemptions:
         if r["id"] == redemption_id:
+            logger.info(f"Retrieved redemption: id={redemption_id}")
             return jsonify(r)
+    
+    logger.warning(f"Redemption not found: id={redemption_id}")
     return jsonify({"error": "not found"}), 404
 
 
