@@ -20,6 +20,42 @@ NAME_MAX_LENGTH = 200
 VALUE_MAX = 1_000_000
 
 
+def validate_name(name):
+    """Validate redemption name field.
+    
+    Returns:
+        tuple: (validated_name, error_message or None)
+    """
+    if not name or not isinstance(name, str):
+        return None, "name is required and must be a string"
+    
+    name = name.strip()
+    if len(name) == 0:
+        return None, "name must not be blank"
+    elif len(name) > NAME_MAX_LENGTH:
+        return None, f"name must be {NAME_MAX_LENGTH} characters or fewer"
+    
+    return name, None
+
+
+def validate_value(value):
+    """Validate redemption value field.
+    
+    Returns:
+        tuple: (value, error_message or None)
+    """
+    if value is None:
+        return None, "value is required"
+    elif not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None, "value must be a number"
+    elif value <= 0:
+        return None, "value must be a positive number"
+    elif value > VALUE_MAX:
+        return None, f"value must not exceed {VALUE_MAX}"
+    
+    return value, None
+
+
 @app.route("/health")
 def health():
     return jsonify({"status": "UP", "service": "loyalty-points-api"})
@@ -57,25 +93,15 @@ def create_redemption():
 
     errors = []
 
-    name = payload.get("name")
-    if not name or not isinstance(name, str):
-        errors.append("name is required and must be a string")
-    else:
-        name = name.strip()
-        if len(name) == 0:
-            errors.append("name must not be blank")
-        elif len(name) > NAME_MAX_LENGTH:
-            errors.append(f"name must be {NAME_MAX_LENGTH} characters or fewer")
+    # Validate name
+    name, name_error = validate_name(payload.get("name"))
+    if name_error:
+        errors.append(name_error)
 
-    value = payload.get("value")
-    if value is None:
-        errors.append("value is required")
-    elif not isinstance(value, (int, float)) or isinstance(value, bool):
-        errors.append("value must be a number")
-    elif value <= 0:
-        errors.append("value must be a positive number")
-    elif value > VALUE_MAX:
-        errors.append(f"value must not exceed {VALUE_MAX}")
+    # Validate value
+    value, value_error = validate_value(payload.get("value"))
+    if value_error:
+        errors.append(value_error)
 
     if errors:
         logger.warning(f"Validation failed: {errors}")
