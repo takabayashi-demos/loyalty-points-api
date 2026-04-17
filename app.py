@@ -1,4 +1,5 @@
 """Loyalty Points API - Redemption Service."""
+import threading
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
@@ -7,6 +8,7 @@ app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024  # 1 MB
 # In-memory store (replaced by database in production)
 _redemptions = []
 _next_id = 1
+_lock = threading.Lock()
 
 NAME_MAX_LENGTH = 200
 VALUE_MAX = 1_000_000
@@ -25,11 +27,13 @@ def list_redemptions():
     limit = max(1, min(limit, 100))
     offset = max(0, offset)
 
-    paginated = _redemptions[offset:offset + limit]
+    with _lock:
+        paginated = _redemptions[offset:offset + limit]
+        total = len(_redemptions)
 
     return jsonify({
         "items": paginated,
-        "total": len(_redemptions),
+        "total": total,
         "limit": limit,
         "offset": offset,
     })
@@ -69,22 +73,24 @@ def create_redemption():
     if errors:
         return jsonify({"errors": errors}), 400
 
-    redemption = {
-        "id": str(_next_id),
-        "name": name,
-        "value": value,
-    }
-    _next_id += 1
-    _redemptions.append(redemption)
+    with _lock:
+        redemption = {
+            "id": str(_next_id),
+            "name": name,
+            "value": value,
+        }
+        _next_id += 1
+        _redemptions.append(redemption)
 
     return jsonify(redemption), 201
 
 
 @app.route("/api/v1/redemption/<redemption_id>", methods=["GET"])
 def get_redemption(redemption_id):
-    for r in _redemptions:
-        if r["id"] == redemption_id:
-            return jsonify(r)
+    with _lock:
+        for r in _redemptions:
+            if r["id"] == redemption_id:
+                return jsonify(r)
     return jsonify({"error": "not found"}), 404
 
 
